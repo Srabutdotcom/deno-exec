@@ -46,7 +46,7 @@ interface IOptions {
 
 export const exec = async (
   command: string,
-  options: IOptions = { /* output: OutputMode.StdOut, */ verbose: false },
+  options: IOptions = { output: OutputMode.StdOut, verbose: false },
 ): Promise<IExecResponse> => {
   const splits = splitCommand(command);
 
