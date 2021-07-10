@@ -58,7 +58,7 @@ Deno.test({
 Deno.test({
   name: "Testing Command Sequences",
   async fn(): Promise<void> {
-    let response = await execSequence([
+    const response = await execSequence([
       "echo Hello World",
       "ls -l",
       "cat helloworld.txt",

@@ -1,12 +1,15 @@
-import { v4 } from "https://deno.land/std/uuid/mod.ts";
+import { v4 } from "https://deno.land/std@0.100.0/uuid/mod.ts";
+//import { readLines, readAll } from "https://deno.land/std@0.99.0/io/mod.ts";
 
+/* to split command string into array of string */
 function splitCommand(command: string): string[] {
   var myRegexp = /[^\s"]+|"([^"]*)"/gi;
   var splits = [];
+  let match
 
   do {
     //Each call to exec returns the next regex match as an array
-    var match = myRegexp.exec(command);
+    match = myRegexp.exec(command);
     if (match != null) {
       //Index 1 in the array is the captured group if it exists
       //Index 0 is the matched text, which we use if no captured group exists
@@ -31,10 +34,11 @@ export interface IExecStatus {
 
 export interface IExecResponse {
   status: IExecStatus;
-  output: string;
+  output: string|string[]|Uint8Array|undefined;
 }
 
 interface IOptions {
+  input?: Uint8Array;
   output?: OutputMode;
   verbose?: boolean;
   continueOnError?: boolean;
@@ -42,9 +46,9 @@ interface IOptions {
 
 export const exec = async (
   command: string,
-  options: IOptions = { output: OutputMode.StdOut, verbose: false },
+  options: IOptions = { /* output: OutputMode.StdOut, */ verbose: false },
 ): Promise<IExecResponse> => {
-  let splits = splitCommand(command);
+  const splits = splitCommand(command);
 
   let uuid = "";
   if (options.verbose) {
@@ -56,73 +60,100 @@ export const exec = async (
     console.log(`    Exec Command Splits:  [${splits}]`);
   }
 
-  let p = Deno.run({ cmd: splits, stdout: "piped", stderr: "piped" });
+  const stdinpipe = command.includes('stdin')?'piped':'null'
+  const stdoutpipe = command.includes('stdout')?'piped':'null'
+  console.log('stdin: ' + stdinpipe)
+  console.log('stdout: ' + stdoutpipe)
 
-  let response = "";
-  let decoder = new TextDecoder();
+  const p = Deno.run({ cmd: splits, stdin: stdinpipe, stdout: stdoutpipe, stderr: "piped" });
 
-  if (p && options.output != OutputMode.None) {
-    const buff = new Uint8Array(1);
+  //const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  console.log(options.input)
 
-    while (true) {
-      try {
-        let stdoutResult = await p.stdout?.read(buff);
-        let stderrResult = await p.stderr?.read(buff);
-        if (!stdoutResult && !stderrResult) {
-          break;
-        }
+  if (p && splits[1]==='stdin') {
+    console.log('before stdin.write line: 69')
+    await p.stdin?.write(
+      typeof options.input === "object" ? options.input : encoder.encode(options.input)
+    );
+    //console.log(JSON.stringify(p.stdin))
+    await p.stdin?.close();
+  }
+  // _deno-lint-ignore no-debugger
+  // debugger;
 
-        if (
-          options.output == OutputMode.Capture ||
-          options.output == OutputMode.Tee
-        ) {
-          response = response + decoder.decode(buff);
-        }
-
-        if (
-          options.output == OutputMode.StdOut ||
-          options.output == OutputMode.Tee
-        ) {
-          await Deno.stdout.write(buff);
-        }
-      } catch (ex) {
-        break;
-      }
-    }
+  let _stderr:Uint8Array=new Uint8Array()
+  //let _stdout:Uint8Array=new Uint8Array()
+  const _status:IExecStatus={
+    code:1,
+    success:false
+  }
+  const result :IExecResponse = {
+    status : _status,
+    output : []
   }
 
-  let status = await p.status();
-  p.stdout?.close();
-  p.stderr?.close();
-  p.close();
+  // let lines = []
 
-  let result = {
+  if (p) {
+    
+    /* for await (let line of readLines(p.stdout)) {
+      lines.push(line);
+    }
+    console.log('lines: ' + JSON.stringify(lines)) */
+    /* const buff = new Uint8Array(6500);
+    await p.stdout.read(buff);
+    console.log('report:' + new TextDecoder().decode(buff)); */
+    //https://github.com/denoland/deno/issues/4568
+    const [ stderr, stdout, status ] = await Promise.all([ p.stderrOutput(), p.output(), p.status() ]);
+    //deno-lint-ignore no-debugger
+    debugger;
+    console.log(`stderr, stdout and status is done`);
+    
+    p.close();
+    console.log(`p is closed`);
+    
+    result.status = status
+    result.output = new TextDecoder().decode(stdout)
+    // console.log('result: ' + result.output)
+    _stderr = stderr
+    // console.log('error:' +_stderr)
+    /* _stdout = stdout
+    _status = status */
+    
+  }
+
+  //console.log('exec line 105:' + JSON.stringify(_stdout))
+
+  /* const result = {
     status: {
-      code: status.code,
-      success: status.success,
+      code:  _status.code,
+      success: _status.success,
     },
-    output: response.trim(),
-  };
+    output: new TextDecoder().decode(_stdout),
+  }; */
   if (options.verbose) {
     console.log("    Exec Result: ", result);
     console.log(`Exec Context: ${uuid}`);
     console.log(``);
   }
+
   return result;
+  
 };
 
 export const execSequence = async (
   commands: string[],
   options: IOptions = {
-    output: OutputMode.StdOut,
+    /* output: OutputMode.StdOut, */
     continueOnError: false,
     verbose: false,
   },
 ): Promise<IExecResponse[]> => {
-  let results: IExecResponse[] = [];
+  const results: IExecResponse[] = [];
 
   for (let i = 0; i < commands.length; i++) {
-    let result = await exec(commands[i], options);
+    const result = await exec(commands[i], options);
     results.push(result);
     if (options.continueOnError == false && result.status.code != 0) {
       break;
