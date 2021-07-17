@@ -59,7 +59,7 @@ export const exec = async (
     console.log(`    Exec Command: ${command}`);
     console.log(`    Exec Command Splits:  [${splits}]`);
   }
-
+  
   const stdinpipe = command.includes('stdin')?'piped':'null'
   const stdoutpipe = command.includes('stdout')?'piped':'null'
   console.log('stdin: ' + stdinpipe)
