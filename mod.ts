@@ -62,17 +62,17 @@ export const exec = async (
   
   const stdinpipe = command.includes('stdin')?'piped':'null'
   const stdoutpipe = command.includes('stdout')?'piped':'null'
-  console.log('stdin: ' + stdinpipe)
-  console.log('stdout: ' + stdoutpipe)
+  /* console.log('stdin: ' + stdinpipe)
+  console.log('stdout: ' + stdoutpipe) */
 
   const p = Deno.run({ cmd: splits, stdin: stdinpipe, stdout: stdoutpipe, stderr: "piped" });
 
   //const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  console.log(options.input)
+  //console.log(options.input)
 
   if (p && splits[1]==='stdin') {
-    console.log('before stdin.write line: 69')
+    //console.log('before stdin.write line: 69')
     await p.stdin?.write(
       typeof options.input === "object" ? options.input : encoder.encode(options.input)
     );
@@ -107,11 +107,11 @@ export const exec = async (
     //https://github.com/denoland/deno/issues/4568
     const [ stderr, stdout, status ] = await Promise.all([ p.stderrOutput(), p.output(), p.status() ]);
     //deno-lint-ignore no-debugger
-    debugger;
-    console.log(`stderr, stdout and status is done`);
+    //debugger;
+    //console.log(`stderr, stdout and status is done`);
     
     p.close();
-    console.log(`p is closed`);
+    //console.log(`p is closed`);
     
     result.status = status
     result.output = new TextDecoder().decode(stdout)
